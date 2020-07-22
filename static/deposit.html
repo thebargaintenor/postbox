@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Postbox - Deposit Item</title>
+    <style>
+        body {
+            font: sans-serif;
+            background-color: #333333;
+            color: #eeeeee;
+        }
+
+        input {
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <form enctype="multipart/form-data" method="POST" action="/deposit">     
+            <label>File: </label><input name="uploadfile" type="file" value="" />
+            <br />
+            <input type="submit" value="Deposit" />
+        </form> 
+    </div>
+</body>
+</html>
