@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 )
@@ -24,7 +25,8 @@ func main() {
 
 	http.HandleFunc("/deposit", deposit(dropLocation))
 
-	fmt.Printf("Listening on port 8080...\n")
+	fmt.Println("Listening on port 8080...")
+	fmt.Printf("Clients can add files at [[ %s:8080/deposit ]]\n", getLocalIP())
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -58,4 +60,17 @@ func deposit(location string) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 	}
+}
+
+func getLocalIP() string {
+	conn, err := net.Dial("udp", "208.67.222.222:80")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String()
 }
