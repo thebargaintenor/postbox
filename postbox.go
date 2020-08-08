@@ -45,7 +45,7 @@ func deposit(location string) func(http.ResponseWriter, *http.Request) {
 
 			defer uploadFile.Close()
 
-			fmt.Fprintf(response, "%v", handler.Header)
+			fmt.Fprintf(response, "%s uploaded!", handler.Filename)
 
 			localFile, err := os.OpenFile(location+"/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0664)
 			if err != nil {
@@ -55,6 +55,8 @@ func deposit(location string) func(http.ResponseWriter, *http.Request) {
 
 			defer localFile.Close()
 			io.Copy(localFile, uploadFile)
+
+			fmt.Printf("Uploaded %s from %s", handler.Filename, request.RemoteAddr)
 		} else {
 			http.Error(response, "Is not how this works.", http.StatusNotFound)
 			return
