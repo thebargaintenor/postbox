@@ -3,10 +3,20 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/gorilla/mux"
 )
+
+type SpaHandler struct {
+	staticPath string
+	indexPath  string
+}
 
 func main() {
 	if len(os.Args) == 1 {
@@ -16,25 +26,32 @@ func main() {
 
 	dropLocation := os.Args[1]
 
-	fileServer := http.FileServer(http.Dir("./static"))
-	http.Handle("/", fileServer)
+	router := mux.NewRouter()
 
-	http.HandleFunc("/health-check", func(response http.ResponseWriter, request *http.Request) {
+	router.HandleFunc("/api/health-check", func(response http.ResponseWriter, request *http.Request) {
 		fmt.Fprintf(response, "of great health!")
 	})
 
-	http.HandleFunc("/deposit", deposit(dropLocation))
+	router.HandleFunc("/api/deposit", deposit(dropLocation))
+
+	application := SpaHandler{staticPath: "static", indexPath: "index.html"}
+	router.PathPrefix("/").Handler(application)
+
+	server := &http.Server{
+		Handler:      router,
+		Addr:         ":8080",
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
 
 	fmt.Println("Listening on port 8080...")
-	fmt.Printf("Clients can add files at [[ %s:8080/deposit ]]\n", getLocalIP())
-	http.ListenAndServe(":8080", nil)
+	fmt.Printf("Clients can add files at [[ %s:8080/app/deposit ]]\n", getLocalIP())
+	log.Fatal(server.ListenAndServe())
 }
 
 func deposit(location string) func(http.ResponseWriter, *http.Request) {
 	return func(response http.ResponseWriter, request *http.Request) {
-		if request.Method == "GET" {
-			http.ServeFile(response, request, "./static/deposit.html")
-		} else if request.Method == "POST" {
+		if request.Method == "POST" {
 			request.ParseMultipartForm(32 << 20)
 			uploadFile, handler, err := request.FormFile("uploadfile")
 			if err != nil {
@@ -75,4 +92,26 @@ func getLocalIP() string {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
 	return localAddr.IP.String()
+}
+
+func (h SpaHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	path, err := filepath.Abs(request.URL.Path)
+	if err != nil {
+		http.Error(response, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	servePath := filepath.Join(h.staticPath, path)
+
+	_, err = os.Stat(servePath)
+	if os.IsNotExist(err) {
+		// serve index file, handing off route to react SPA
+		http.ServeFile(response, request, filepath.Join(h.staticPath, h.indexPath))
+		return
+	} else if err != nil {
+		http.Error(response, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.FileServer(http.Dir(h.staticPath)).ServeHTTP(response, request)
 }
